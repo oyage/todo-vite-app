@@ -1,64 +1,52 @@
-import { useState, useEffect } from 'react'
-import './App.css'
+import styled from 'styled-components';
+import { useTodos } from './contexts/TodoContext'
+import AddTodoForm from './components/AddTodoForm'
+import TodoList from './components/TodoList'
 
-interface Todo {
-  id: number
-  text: string
-  completed: boolean
-}
+// Styled Components
+const AppContainer = styled.div`
+  max-width: 400px;
+  margin: 3rem auto;
+  padding: 2rem;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+  text-align: center;
+`;
+
+const Title = styled.h1`
+  margin-bottom: 1.5rem;
+  color: #646cff;
+`;
+
+// App.tsx no longer needs to import Todo type directly if it's not used for its own state/props.
+// Child components and context handle the Todo type.
+
+const ErrorMessageContainer = styled.div`
+  background-color: #ffdddd;
+  color: #d8000c;
+  padding: 10px;
+  margin-bottom: 15px;
+  border: 1px solid #d8000c;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: center;
+`;
 
 function App() {
-  const [todos, setTodos] = useState<Todo[]>(() => {
-    const saved = localStorage.getItem('todos')
-    return saved ? JSON.parse(saved) : []
-  })
-  const [input, setInput] = useState('')
-
-  useEffect(() => {
-    localStorage.setItem('todos', JSON.stringify(todos))
-  }, [todos])
-
-  const addTodo = () => {
-    if (!input.trim()) return
-    setTodos([
-      ...todos,
-      { id: Date.now(), text: input.trim(), completed: false },
-    ])
-    setInput('')
-  }
-
-  const toggleTodo = (id: number) => {
-    setTodos(todos.map(todo =>
-      todo.id === id ? { ...todo, completed: !todo.completed } : todo
-    ))
-  }
-
-  const deleteTodo = (id: number) => {
-    setTodos(todos.filter(todo => todo.id !== id))
-  }
+  const { todos, addTodo, toggleTodo, deleteTodo, error, clearError } = useTodos()
 
   return (
-    <div className="todo-app">
-      <h1>TODOアプリ</h1>
-      <div className="todo-input">
-        <input
-          type="text"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          placeholder="新しいタスクを入力..."
-          onKeyDown={e => { if (e.key === 'Enter') addTodo() }}
-        />
-        <button onClick={addTodo}>追加</button>
-      </div>
-      <ul className="todo-list">
-        {todos.map(todo => (
-          <li key={todo.id} className={todo.completed ? 'completed' : ''}>
-            <span onClick={() => toggleTodo(todo.id)}>{todo.text}</span>
-            <button onClick={() => deleteTodo(todo.id)}>削除</button>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <AppContainer>
+      <Title>TODOアプリ</Title>
+      {error && (
+        <ErrorMessageContainer onClick={clearError}>
+          Error: {error} (click to dismiss)
+        </ErrorMessageContainer>
+      )}
+      <AddTodoForm onAddTodo={addTodo} />
+      <TodoList todos={todos} onToggleTodo={toggleTodo} onDeleteTodo={deleteTodo} />
+    </AppContainer>
   )
 }
 
