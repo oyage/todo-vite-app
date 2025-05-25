@@ -3,7 +3,8 @@ import { useTodos } from './contexts/TodoContext'
 import AddTodoForm from './components/AddTodoForm'
 import TodoList from './components/TodoList'
 
-// Styled Components
+// スタイル付きコンポーネント
+// アプリケーションのメインコンテナのスタイル
 const AppContainer = styled.div`
   max-width: 400px;
   margin: 3rem auto;
@@ -14,14 +15,16 @@ const AppContainer = styled.div`
   text-align: center;
 `;
 
+// アプリケーションのタイトルのスタイル
 const Title = styled.h1`
   margin-bottom: 1.5rem;
   color: #646cff;
 `;
 
-// App.tsx no longer needs to import Todo type directly if it's not used for its own state/props.
-// Child components and context handle the Todo type.
+// App.tsx は、自身の state や props で Todo 型を使用しない場合、直接インポートする必要はありません。
+// 子コンポーネントとコンテキストが Todo 型を処理します。
 
+// エラーメッセージコンテナのスタイル
 const ErrorMessageContainer = styled.div`
   background-color: #ffdddd;
   color: #d8000c;
@@ -33,18 +36,25 @@ const ErrorMessageContainer = styled.div`
   text-align: center;
 `;
 
+// Appコンポーネント： TODOアプリケーションのメインコンポーネント
 function App() {
+  // useTodosフックからTODOリスト、追加、切り替え、削除関数、エラー、エラークリア関数を取得
   const { todos, addTodo, toggleTodo, deleteTodo, error, clearError } = useTodos()
 
   return (
+    // AppContainerでアプリケーション全体をラップ
     <AppContainer>
+      {/* アプリケーションのタイトル */}
       <Title>TODOアプリ</Title>
+      {/* エラーが存在する場合、エラーメッセージを表示 */}
       {error && (
         <ErrorMessageContainer onClick={clearError}>
-          Error: {error} (click to dismiss)
+          エラー: {error} (クリックして閉じる)
         </ErrorMessageContainer>
       )}
+      {/* TODO追加フォームコンポーネント */}
       <AddTodoForm onAddTodo={addTodo} />
+      {/* TODOリストコンポーネント */}
       <TodoList todos={todos} onToggleTodo={toggleTodo} onDeleteTodo={deleteTodo} />
     </AppContainer>
   )
