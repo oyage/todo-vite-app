@@ -1,7 +1,12 @@
 import styled from 'styled-components';
-import { useTodos } from './contexts/TodoContext'
-import AddTodoForm from './components/AddTodoForm'
-import TodoList from './components/TodoList'
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { useTodos } from './contexts/TodoContext';
+import AddTodoForm from './components/AddTodoForm';
+import TodoList from './components/TodoList';
+import LoginPage from './components/LoginPage';
+import SignupPage from './components/SignupPage';
+import AuthDetails from './components/AuthDetails';
+import ProtectedRoute from './components/ProtectedRoute';
 
 // スタイル付きコンポーネント
 // アプリケーションのメインコンテナのスタイル
@@ -21,9 +26,6 @@ const Title = styled.h1`
   color: #646cff;
 `;
 
-// App.tsx は、自身の state や props で Todo 型を使用しない場合、直接インポートする必要はありません。
-// 子コンポーネントとコンテキストが Todo 型を処理します。
-
 // エラーメッセージコンテナのスタイル
 const ErrorMessageContainer = styled.div`
   background-color: #ffdddd;
@@ -36,28 +38,43 @@ const ErrorMessageContainer = styled.div`
   text-align: center;
 `;
 
-// Appコンポーネント： TODOアプリケーションのメインコンポーネント
-function App() {
-  // useTodosフックからTODOリスト、追加、切り替え、削除関数、エラー、エラークリア関数を取得
-  const { todos, addTodo, toggleTodo, deleteTodo, error, clearError } = useTodos()
+// TodoAppContent will now hold the original content of App
+const TodoAppContent = () => {
+  const { todos, addTodo, toggleTodo, deleteTodo, error, clearError } = useTodos();
 
   return (
-    // AppContainerでアプリケーション全体をラップ
     <AppContainer>
-      {/* アプリケーションのタイトル */}
       <Title>TODOアプリ</Title>
-      {/* エラーが存在する場合、エラーメッセージを表示 */}
       {error && (
         <ErrorMessageContainer onClick={clearError}>
           エラー: {error} (クリックして閉じる)
         </ErrorMessageContainer>
       )}
-      {/* TODO追加フォームコンポーネント */}
       <AddTodoForm onAddTodo={addTodo} />
-      {/* TODOリストコンポーネント */}
       <TodoList todos={todos} onToggleTodo={toggleTodo} onDeleteTodo={deleteTodo} />
     </AppContainer>
-  )
+  );
+};
+
+// Appコンポーネント： TODOアプリケーションのメインコンポーネント
+function App() {
+  return (
+    <BrowserRouter>
+      <AuthDetails />
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <TodoAppContent />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;
