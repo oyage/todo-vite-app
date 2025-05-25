@@ -1,4 +1,8 @@
-import React from 'react';
+import { TextEncoder } from 'util';
+if (!global.TextEncoder) {
+  global.TextEncoder = TextEncoder;
+}
+
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom'; // Required because AuthDetails uses Link
 import AuthDetails from './AuthDetails';

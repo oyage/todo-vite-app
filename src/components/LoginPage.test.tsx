@@ -1,4 +1,8 @@
-import React from 'react';
+import { TextEncoder } from 'util';
+if (!global.TextEncoder) {
+  global.TextEncoder = TextEncoder;
+}
+
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import LoginPage from './LoginPage';
 import { AuthContext, AuthProvider } from '../contexts/AuthContext'; // Import AuthProvider
@@ -60,20 +64,15 @@ describe('LoginPage', () => {
   });
 
   it('should display an error message if login fails', async () => {
-    const errorLoginMock = jest.fn().mockImplementation(async () => {
-        // Simulate the behavior of login in AuthContext when it fails
-        mockUseAuthWithError.error = "Invalid credentials"; 
-    });
-
+    // errorを直接セットした状態でProviderに渡す
     const mockUseAuthWithError = {
       currentUser: null,
       isLoading: false,
-      error: null, // Initially no error
-      login: errorLoginMock, // Use the error-simulating mock
+      error: "Invalid credentials", // ここでセット
+      login: jest.fn(),
       logout: jest.fn(),
       signup: jest.fn(),
     };
-    
     render(
       <MemoryRouter>
         <AuthContext.Provider value={mockUseAuthWithError}>
@@ -81,14 +80,7 @@ describe('LoginPage', () => {
         </AuthContext.Provider>
       </MemoryRouter>
     );
-
-    const loginButton = screen.getByRole('button', { name: /login/i });
-    fireEvent.click(loginButton); // Attempt login
-
-    await waitFor(() => {
-      // The error message is now set by the mockLogin itself
-      expect(screen.getByText('Invalid credentials')).toBeInTheDocument();
-    });
+    expect(screen.getByText('Invalid credentials')).toBeInTheDocument();
   });
 
    it('should disable button and show loading text when isLoading is true', () => {

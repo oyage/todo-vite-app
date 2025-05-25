@@ -45,7 +45,7 @@ const SignupPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await signup(email, password);
+    await signup(email);
   };
 
   return (

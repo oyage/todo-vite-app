@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState } from 'react';
+import type { ReactNode } from 'react';
 
 // Type definitions
 interface User {
@@ -9,9 +10,9 @@ interface AuthContextType {
   currentUser: User | null;
   isLoading: boolean;
   error: string | null;
-  login: (email, password) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
-  signup: (email, password) => Promise<void>;
+  signup: (email: string) => Promise<void>;
 }
 
 interface AuthProviderProps {
@@ -19,7 +20,7 @@ interface AuthProviderProps {
 }
 
 // Create context
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // AuthProvider component
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
@@ -27,13 +28,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const login = async (email, password) => {
+  const login = async (email: string, password: string) => {
     setIsLoading(true);
     setError(null);
-    // Mock login
+    await new Promise((resolve) => setTimeout(resolve, 500)); // 疑似API遅延
     if (email === 'test@example.com' && password === 'password') {
       setCurrentUser({ email });
+      setError(null);
     } else {
+      setCurrentUser(null);
       setError('Invalid email or password');
     }
     setIsLoading(false);
@@ -43,10 +46,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setCurrentUser(null);
   };
 
-  const signup = async (email, password) => {
+  const signup = async (email: string) => {
     setIsLoading(true);
     setError(null);
-    // Mock signup - always succeeds for now
+    await new Promise((resolve) => setTimeout(resolve, 500)); // 疑似API遅延
     setCurrentUser({ email });
     setIsLoading(false);
   };

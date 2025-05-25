@@ -9,12 +9,12 @@ const TestConsumerComponent: React.FC = () => {
   return (
     <div>
       {isLoading && <p>Loading...</p>}
-      {error && <pdata-testid="error-message">{error}</pdata-testid>}
-      {currentUser && <pdata-testid="user-email">{currentUser.email}</pdata-testid>}
+      {error && <p data-testid="error-message">{error}</p>}
+      {currentUser && <p data-testid="user-email">{currentUser.email}</p>}
       <button onClick={async () => await login('test@example.com', 'password')}>Login Valid</button>
       <button onClick={async () => await login('wrong@example.com', 'wrongpassword')}>Login Invalid</button>
       <button onClick={logout}>Logout</button>
-      <button onClick={async () => await signup('newuser@example.com', 'newpassword')}>Signup</button>
+      <button onClick={async () => await signup('newuser@example.com')}>Signup</button>
     </div>
   );
 };
