@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Todo } from '../types/todo';
+import type { Todo } from '../types/todo';
 import TodoItem from './TodoItem';
 
 // Styled Components

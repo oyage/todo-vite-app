@@ -1,4 +1,4 @@
-import { Todo } from '../types/todo'; // Import Todo type
+import type { Todo } from '../types/todo'; // Import Todo type
 
 let mockTodos: Todo[] = [
   { id: '1', text: 'Learn React Context', completed: true },

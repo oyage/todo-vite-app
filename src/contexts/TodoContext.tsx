@@ -1,6 +1,7 @@
-import React, { createContext, useState, ReactNode, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import * as todoService from '../services/todoService'; // Import the service
-import { Todo } from '../types/todo'; // Import Todo type
+import type { Todo } from '../types/todo'; // Import Todo type
 
 // Type for the context state and actions
 export interface TodoContextType {
