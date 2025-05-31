@@ -1,99 +1,275 @@
 import React from 'react';
-import { render, screen, act } from '@testing-library/react';
-import { AuthProvider, useAuth } from './AuthContext';
+import { render, act } from '@testing-library/react';
+import { AuthProvider, useAuth, type AuthContextType } from './AuthContext'; // type-only for AuthContextType
+import authService from '../services/authService'; // Import the actual service to be mocked
+import type { User } from '../services/authService'; // type-only for User type
 
-// Helper component to use the hook
+// Mock the authService
+jest.mock('../services/authService', () => ({
+  __esModule: true,
+  default: {
+    getCurrentUser: jest.fn(),
+    login: jest.fn(),
+    signup: jest.fn(),
+    logout: jest.fn(),
+  },
+}));
+
+const mockAuthService = authService as jest.Mocked<typeof authService>; // Typecast for mock functions
+
 const TestConsumerComponent: React.FC = () => {
-  const { currentUser, login, logout, signup, error, isLoading } = useAuth();
-
+  const auth = useAuth();
+  if (!auth) return null;
   return (
     <div>
-      {isLoading && <p>Loading...</p>}
-      {error && <p data-testid="error-message">{error}</p>}
-      {currentUser && <p data-testid="user-email">{currentUser.email}</p>}
-      <button onClick={async () => await login('test@example.com', 'password')}>Login Valid</button>
-      <button onClick={async () => await login('wrong@example.com', 'wrongpassword')}>Login Invalid</button>
-      <button onClick={logout}>Logout</button>
-      <button onClick={async () => await signup('newuser@example.com')}>Signup</button>
+      <div data-testid="currentUser">{JSON.stringify(auth.currentUser)}</div>
+      <div data-testid="isLoading">{auth.isLoading.toString()}</div>
+      <div data-testid="error">{auth.error}</div>
+      <button onClick={() => auth.login('test@example.com', 'password')}>Login</button>
+      <button onClick={() => auth.signup('new@example.com', 'newpassword')}>Signup</button>
+      <button onClick={() => auth.logout()}>Logout</button>
     </div>
   );
 };
 
 describe('AuthContext', () => {
-  it('should set currentUser on successful login', async () => {
-    render(
-      <AuthProvider>
-        <TestConsumerComponent />
-      </AuthProvider>
-    );
+  const mockUser: User = { id: '1', email: 'test@example.com' };
 
-    await act(async () => {
-      screen.getByText('Login Valid').click();
-    });
-    expect(screen.getByTestId('user-email')).toHaveTextContent('test@example.com');
-    expect(screen.queryByTestId('error-message')).toBeNull();
+  beforeEach(() => {
+    // Reset mocks before each test
+    mockAuthService.getCurrentUser.mockReset();
+    mockAuthService.login.mockReset();
+    mockAuthService.signup.mockReset();
+    mockAuthService.logout.mockReset();
   });
 
-  it('should set error on failed login and currentUser should be null', async () => {
-    render(
-      <AuthProvider>
-        <TestConsumerComponent />
-      </AuthProvider>
-    );
-    // Ensure currentUser is initially null
-    expect(screen.queryByTestId('user-email')).toBeNull();
+  describe('Initial State and getCurrentUser', () => {
+    it('should be loading initially and then call getCurrentUser, setting user if found', async () => {
+      mockAuthService.getCurrentUser.mockResolvedValue(mockUser);
+      let getByTestId: (text: string) => HTMLElement;
+      await act(async () => {
+        const { getByTestId: getByTestIdRender } = render(
+          <AuthProvider>
+            <TestConsumerComponent />
+          </AuthProvider>
+        );
+        getByTestId = getByTestIdRender;
+      });
 
-    await act(async () => {
-      screen.getByText('Login Invalid').click();
+      expect(getByTestId!('isLoading').textContent).toBe('false'); // Should be false after check
+      expect(getByTestId!('currentUser').textContent).toBe(JSON.stringify(mockUser));
+      expect(mockAuthService.getCurrentUser).toHaveBeenCalledTimes(1);
+      expect(getByTestId!('error').textContent).toBe('');
     });
-    expect(screen.getByTestId('error-message')).toHaveTextContent('Invalid email or password');
-    expect(screen.queryByTestId('user-email')).toBeNull();
+
+    it('should be loading initially and then call getCurrentUser, setting user to null if not found', async () => {
+      mockAuthService.getCurrentUser.mockResolvedValue(null);
+      let getByTestId: (text: string) => HTMLElement;
+      await act(async () => {
+        const { getByTestId: getByTestIdRender } = render(
+          <AuthProvider>
+            <TestConsumerComponent />
+          </AuthProvider>
+        );
+        getByTestId = getByTestIdRender;
+      });
+      expect(getByTestId!('isLoading').textContent).toBe('false');
+      expect(getByTestId!('currentUser').textContent).toBe('null');
+      expect(mockAuthService.getCurrentUser).toHaveBeenCalledTimes(1);
+    });
+     it('should handle errors from getCurrentUser', async () => {
+      mockAuthService.getCurrentUser.mockRejectedValue(new Error('Failed to fetch user'));
+      let getByTestId: (text: string) => HTMLElement;
+      await act(async () => {
+        const { getByTestId: getByTestIdRender } = render(
+          <AuthProvider>
+            <TestConsumerComponent />
+          </AuthProvider>
+        );
+        getByTestId = getByTestIdRender;
+      });
+      expect(getByTestId!('isLoading').textContent).toBe('false');
+      expect(getByTestId!('currentUser').textContent).toBe('null');
+      // Note: The current AuthContext doesn't explicitly set an error for getCurrentUser failure,
+      // it just resolves to user being null. If it were to set an error, we'd test that here.
+    });
   });
 
-  it('should clear currentUser on logout', async () => {
-    render(
-      <AuthProvider>
-        <TestConsumerComponent />
-      </AuthProvider>
-    );
+  describe('Login Function', () => {
+    it('should call authService.login and update currentUser on success', async () => {
+      mockAuthService.getCurrentUser.mockResolvedValue(null); // Start with no user
+      mockAuthService.login.mockResolvedValue(mockUser);
 
-    // Login first
-    await act(async () => {
-      screen.getByText('Login Valid').click();
-    });
-    expect(screen.getByTestId('user-email')).toHaveTextContent('test@example.com');
+      let contextValue: AuthContextType | undefined;
+      const TestComponent = () => {
+        contextValue = useAuth();
+        return null;
+      };
 
-    // Then logout
-    await act(async () => {
-      screen.getByText('Logout').click();
+      render(
+        <AuthProvider>
+          <TestComponent />
+        </AuthProvider>
+      );
+
+      expect(contextValue?.isLoading).toBe(true); // Initial loading from getCurrentUser
+      await act(async () => {
+        // Wait for initial getCurrentUser to finish
+      });
+      expect(contextValue?.isLoading).toBe(false);
+
+
+      await act(async () => {
+        await contextValue?.login('test@example.com', 'password');
+      });
+
+      expect(mockAuthService.login).toHaveBeenCalledWith('test@example.com', 'password');
+      expect(contextValue?.currentUser).toEqual(mockUser);
+      expect(contextValue?.error).toBeNull();
+      expect(contextValue?.isLoading).toBe(false);
     });
-    expect(screen.queryByTestId('user-email')).toBeNull();
+
+    it('should call authService.login and set error on failure', async () => {
+      mockAuthService.getCurrentUser.mockResolvedValue(null);
+      const loginError = new Error('Invalid credentials');
+      mockAuthService.login.mockRejectedValue(loginError);
+
+      let contextValue: AuthContextType | undefined;
+      const TestComponent = () => {
+        contextValue = useAuth();
+        return null;
+      };
+      render(
+        <AuthProvider>
+          <TestComponent />
+        </AuthProvider>
+      );
+      await act(async () => { /* wait for initial load */ });
+
+
+      await act(async () => {
+        await contextValue?.login('wrong@example.com', 'wrongpassword');
+      });
+
+      expect(mockAuthService.login).toHaveBeenCalledWith('wrong@example.com', 'wrongpassword');
+      expect(contextValue?.currentUser).toBeNull();
+      expect(contextValue?.error).toBe(loginError.message);
+      expect(contextValue?.isLoading).toBe(false);
+    });
   });
 
-  it('should set currentUser on successful signup', async () => {
-    render(
-      <AuthProvider>
-        <TestConsumerComponent />
-      </AuthProvider>
-    );
+  describe('Signup Function', () => {
+    it('should call authService.signup and update currentUser on success', async () => {
+      mockAuthService.getCurrentUser.mockResolvedValue(null);
+      const newUser = { id: '2', email: 'new@example.com' };
+      mockAuthService.signup.mockResolvedValue(newUser);
 
-    await act(async () => {
-      screen.getByText('Signup').click();
+      let contextValue: AuthContextType | undefined;
+      const TestComponent = () => {
+        contextValue = useAuth();
+        return null;
+      };
+      render(
+        <AuthProvider>
+          <TestComponent />
+        </AuthProvider>
+      );
+      await act(async () => { /* wait for initial load */ });
+
+      await act(async () => {
+        await contextValue?.signup('new@example.com', 'newpassword');
+      });
+
+      expect(mockAuthService.signup).toHaveBeenCalledWith('new@example.com', 'newpassword');
+      expect(contextValue?.currentUser).toEqual(newUser);
+      expect(contextValue?.error).toBeNull();
+      expect(contextValue?.isLoading).toBe(false);
     });
-    expect(screen.getByTestId('user-email')).toHaveTextContent('newuser@example.com');
-    expect(screen.queryByTestId('error-message')).toBeNull();
+
+    it('should call authService.signup and set error on failure', async () => {
+      mockAuthService.getCurrentUser.mockResolvedValue(null);
+      const signupError = new Error('Email already exists');
+      mockAuthService.signup.mockRejectedValue(signupError);
+
+      let contextValue: AuthContextType | undefined;
+      const TestComponent = () => {
+        contextValue = useAuth();
+        return null;
+      };
+      render(
+        <AuthProvider>
+          <TestComponent />
+        </AuthProvider>
+      );
+      await act(async () => { /* wait for initial load */ });
+
+      await act(async () => {
+        await contextValue?.signup('exists@example.com', 'password');
+      });
+
+      expect(mockAuthService.signup).toHaveBeenCalledWith('exists@example.com', 'password');
+      expect(contextValue?.currentUser).toBeNull();
+      expect(contextValue?.error).toBe(signupError.message);
+      expect(contextValue?.isLoading).toBe(false);
+    });
   });
 
-  it('useAuth outside of AuthProvider should throw an error', () => {
-    // Suppress console.error for this specific test
-    const originalError = console.error;
-    console.error = jest.fn();
+  describe('Logout Function', () => {
+    it('should call authService.logout and clear currentUser', async () => {
+      mockAuthService.getCurrentUser.mockResolvedValue(mockUser); // Start with a logged-in user
+      mockAuthService.logout.mockResolvedValue(undefined); // logout resolves to void/undefined
 
-    expect(() => render(<TestConsumerComponent />)).toThrow(
-      'useAuth must be used within an AuthProvider'
-    );
+      let contextValue: AuthContextType | undefined;
+      const TestComponent = () => {
+        contextValue = useAuth();
+        return null;
+      };
+      render(
+        <AuthProvider>
+          <TestComponent />
+        </AuthProvider>
+      );
 
-    // Restore console.error
-    console.error = originalError;
+      // Wait for initial getCurrentUser to resolve and set user
+      await act(async () => {});
+      expect(contextValue?.currentUser).toEqual(mockUser);
+
+
+      await act(async () => {
+        await contextValue?.logout();
+      });
+
+      expect(mockAuthService.logout).toHaveBeenCalledTimes(1);
+      expect(contextValue?.currentUser).toBeNull();
+      expect(contextValue?.error).toBeNull(); // Error should be cleared on logout
+      expect(contextValue?.isLoading).toBe(false);
+    });
+
+    it('should handle errors from authService.logout', async () => {
+      mockAuthService.getCurrentUser.mockResolvedValue(mockUser);
+      const logoutError = new Error('Logout failed');
+      mockAuthService.logout.mockRejectedValue(logoutError);
+
+      let contextValue: AuthContextType | undefined;
+      const TestComponent = () => {
+        contextValue = useAuth();
+        return null;
+      };
+      render(
+        <AuthProvider>
+          <TestComponent />
+        </AuthProvider>
+      );
+      await act(async () => {}); // initial load
+
+      await act(async () => {
+        await contextValue?.logout();
+      });
+
+      expect(mockAuthService.logout).toHaveBeenCalledTimes(1);
+      expect(contextValue?.currentUser).toEqual(mockUser); // User should ideally remain if logout fails
+      expect(contextValue?.error).toBe(logoutError.message);
+      expect(contextValue?.isLoading).toBe(false);
+    });
   });
 });

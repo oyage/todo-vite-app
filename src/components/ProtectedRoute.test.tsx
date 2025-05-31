@@ -1,107 +1,127 @@
-import { TextEncoder } from 'util';
-if (!global.TextEncoder) {
-  global.TextEncoder = TextEncoder;
-}
-
-import React from 'react';
+import React from 'react'; // React might be needed if TestChildComponent uses JSX directly in this file
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import ProtectedRoute from './ProtectedRoute';
-import { AuthContext, AuthProvider } from '../contexts/AuthContext'; // Use actual AuthProvider for wrapping
+import '@testing-library/jest-dom';
+import { AuthContext, type AuthContextType } from '../contexts/AuthContext'; // type-only for AuthContextType
+import ProtectedRoute from './ProtectedRoute'; // The component to test
+import type { User } from '../services/authService'; // type-only for User
 
-// Mock child component
-const MockChildComponent: React.FC = () => <div data-testid="child-component">Protected Content</div>;
-const MockLoginComponent: React.FC = () => <div data-testid="login-page">Login Page</div>;
+// Mock react-router-dom's Navigate component
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'), // Preserve other exports
+  Navigate: jest.fn(({ to, replace }) => (
+    <div data-testid="mock-navigate" data-to={to} data-replace={replace?.toString()}>
+      MockNavigate
+    </div>
+  )),
+}));
+const MockNavigate = require('react-router-dom').Navigate as jest.Mock;
 
 
-describe('ProtectedRoute', () => {
-  it('should redirect to /login if user is not authenticated', () => {
-    render(
-      <MemoryRouter initialEntries={['/protected']}>
-        <AuthProvider> {/* Use actual AuthProvider, initial state is unauthenticated */}
-          <Routes>
-            <Route path="/login" element={<MockLoginComponent />} />
-            <Route
-              path="/protected"
-              element={
-                <ProtectedRoute>
-                  <MockChildComponent />
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </AuthProvider>
-      </MemoryRouter>
-    );
+// Default mock AuthContext value
+const mockAuthContextValue: AuthContextType = {
+  currentUser: null,
+  isLoading: false,
+  error: null,
+  login: jest.fn(),
+  logout: jest.fn(),
+  signup: jest.fn(),
+};
 
-    // Check if redirected to login page
-    expect(screen.getByTestId('login-page')).toBeInTheDocument();
-    expect(screen.queryByTestId('child-component')).not.toBeInTheDocument();
+// Helper function to render with a specific AuthContext value
+const renderWithAuthContext = (
+  ui: React.ReactElement,
+  providerProps: Partial<AuthContextType>
+) => {
+  return render(
+    <AuthContext.Provider value={{ ...mockAuthContextValue, ...providerProps }}>
+      {ui}
+    </AuthContext.Provider>
+  );
+};
+
+// A simple child component to test rendering
+const TestChildComponent: React.FC = () => <div data-testid="test-child">Child Content</div>;
+
+describe('ProtectedRoute Component', () => {
+  const mockUser: User = { id: '1', email: 'testuser@example.com' };
+
+  beforeEach(() => {
+    // Reset mocks before each test
+    jest.clearAllMocks();
+    MockNavigate.mockClear(); // Clear mock calls for Navigate
   });
 
-  it('should render child component if user is authenticated', () => {
-    // Custom provider that simulates a logged-in user
-    const mockAuthValue = {
-      currentUser: { email: 'test@example.com' },
-      isLoading: false,
-      error: null,
-      login: jest.fn(),
-      logout: jest.fn(),
-      signup: jest.fn(),
-    };
+  describe('When isLoading is true', () => {
+    test('renders null and does not render children', () => {
+      const { container } = renderWithAuthContext(
+        <ProtectedRoute>
+          <TestChildComponent />
+        </ProtectedRoute>,
+        { isLoading: true, currentUser: null } // currentUser can be anything if isLoading is true
+      );
 
-    render(
-      <MemoryRouter initialEntries={['/protected']}>
-        <AuthContext.Provider value={mockAuthValue}>
-          <Routes>
-            <Route path="/login" element={<MockLoginComponent />} />
-            <Route
-              path="/protected"
-              element={
-                <ProtectedRoute>
-                  <MockChildComponent />
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </AuthContext.Provider>
-      </MemoryRouter>
-    );
+      // ProtectedRoute renders null when loading
+      expect(container.firstChild).toBeNull();
+      expect(screen.queryByTestId('test-child')).not.toBeInTheDocument();
+      expect(MockNavigate).not.toHaveBeenCalled();
+    });
 
-    // Check if child component is rendered
-    expect(screen.getByTestId('child-component')).toBeInTheDocument();
-    expect(screen.queryByTestId('login-page')).not.toBeInTheDocument();
+    test('renders null even if there is a current user', () => {
+       const { container } = renderWithAuthContext(
+        <ProtectedRoute>
+          <TestChildComponent />
+        </ProtectedRoute>,
+        { isLoading: true, currentUser: mockUser }
+      );
+      expect(container.firstChild).toBeNull();
+      expect(screen.queryByTestId('test-child')).not.toBeInTheDocument();
+      expect(MockNavigate).not.toHaveBeenCalled();
+    });
   });
 
-  it('should show nothing (or a loader) if isLoading is true', () => {
-     const mockAuthValueLoading = {
-      currentUser: null,
-      isLoading: true, // Simulate loading state
-      error: null,
-      login: jest.fn(),
-      logout: jest.fn(),
-      signup: jest.fn(),
-    };
-    const { container } = render(
-      <MemoryRouter initialEntries={['/protected']}>
-        <AuthContext.Provider value={mockAuthValueLoading}>
-           <Routes>
-            <Route path="/login" element={<MockLoginComponent />} />
-            <Route
-              path="/protected"
-              element={
-                <ProtectedRoute>
-                  <MockChildComponent />
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </AuthContext.Provider>
-      </MemoryRouter>
-    );
-    // Expect the component to render nothing, or a specific loading indicator if implemented
-    expect(container.firstChild).toBeNull(); // Or check for loading spinner's test ID
-    expect(screen.queryByTestId('child-component')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('login-page')).not.toBeInTheDocument();
+  describe('When isLoading is false and currentUser is null (no authenticated user)', () => {
+    beforeEach(() => {
+      renderWithAuthContext(
+        <ProtectedRoute>
+          <TestChildComponent />
+        </ProtectedRoute>,
+        { isLoading: false, currentUser: null }
+      );
+    });
+
+    test('renders <Navigate to="/login" replace />', () => {
+      expect(MockNavigate).toHaveBeenCalledTimes(1);
+
+      // Check props of the mocked Navigate component
+      const navigateMockElement = screen.getByTestId('mock-navigate');
+      expect(navigateMockElement).toBeInTheDocument();
+      expect(navigateMockElement).toHaveAttribute('data-to', '/login');
+      expect(navigateMockElement).toHaveAttribute('data-replace', 'true');
+    });
+
+    test('does not render children', () => {
+      expect(screen.queryByTestId('test-child')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('When isLoading is false and currentUser is not null (authenticated user)', () => {
+    beforeEach(() => {
+      renderWithAuthContext(
+        <ProtectedRoute>
+          <TestChildComponent />
+        </ProtectedRoute>,
+        { isLoading: false, currentUser: mockUser }
+      );
+    });
+
+    test('renders its children', () => {
+      expect(screen.getByTestId('test-child')).toBeInTheDocument();
+      expect(screen.getByText('Child Content')).toBeInTheDocument();
+    });
+
+    test('does not render Navigate component', () => {
+      expect(MockNavigate).not.toHaveBeenCalled();
+      expect(screen.queryByTestId('mock-navigate')).not.toBeInTheDocument();
+    });
   });
 });
